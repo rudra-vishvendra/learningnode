@@ -38,7 +38,7 @@
 // }
 
 // src/modules/auth/auth.service.ts
-import jwt from "jsonwebtoken";
+import jwt, { type JwtPayload } from "jsonwebtoken";
 import bcrypt from "bcrypt"; // IMPORT BCRYPT
 import { config } from "../../../core/config/env.config.js";
 import { AppError } from "../../../core/middlewares/error.middleware.js";
@@ -94,6 +94,8 @@ export class AuthService {
       mockUserDatabase.passwordHash,
     );
 
+    console.log(isPasswordValid, "isPasswordValid");
+
     if (!isPasswordValid) {
       // We use the exact same error message to avoid "User Enumeration" attacks
       throw new AppError("Invalid email or password.", 401);
@@ -105,5 +107,30 @@ export class AuthService {
       userId: mockUserDatabase.userId,
       role: mockUserDatabase.role,
     };
+  }
+
+  public refreshAccesToken(oldRrefreshToken: string): {
+    accessToken: string;
+    refreshToken: string;
+  } {
+    try {
+      const decode = jwt.verify(
+        oldRrefreshToken,
+        config.JWT_SECRET,
+      ) as JwtPayload & TokenPayload;
+
+      const cleanPayload: TokenPayload = {
+        tenantId: decode.tenantId,
+        userId: decode.userId,
+        role: decode.role,
+      };
+
+      return this.generateTokenPair(cleanPayload);
+    } catch (error: any) {
+      if (error.name === "TokenExpiredError") {
+        throw new AppError("Refresh token expired. Please log in again.", 403);
+      }
+      throw new AppError("Invalid refresh token.", 403);
+    }
   }
 }
